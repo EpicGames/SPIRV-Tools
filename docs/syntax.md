@@ -159,9 +159,9 @@ feature is intended for fine-grain control in SPIR-V testing), the assembler
 generally has no idea what that value stands for.  So how does it know there is
 exactly one `<id>` and three number literals following in that instruction,
 before the next one begins?  And if `LocalSize` is replaced by an arbitrary
-`!<integer>`, how does it know to take the next three tokens (instead of zero or
+`!<integer>`, how does it know to take the next three tokens instead of zero or
 one, both of which are possible in the absence of certainty that `LocalSize`
-provided)?  The answer is a simple rule governing the parsing of instructions
+provided?  The answer is a simple rule governing the parsing of instructions
 with `!<integer>` in them:
 
 When a token in the assembly program is a `!<integer>`, that integer value is
