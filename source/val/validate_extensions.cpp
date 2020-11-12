@@ -1403,10 +1403,14 @@ spv_result_t ValidateExtInstGlslStd450(ValidationState_t& _,
            ++operand_index) {
         const uint32_t operand_type = _.GetOperandTypeId(inst, operand_index);
         if (result_type != operand_type) {
-          return _.diag(SPV_ERROR_INVALID_DATA, inst)
+          // UE Change Begin: Workaround a DXC generation error and don't
+          // return here.
+          _.diag(SPV_ERROR_INVALID_DATA, inst)
                  << GetExtInstName(_, inst) << ": "
                  << "expected types of all operands to be equal to Result "
                     "Type";
+          // UE Change End: Workaround a DXC generation error and don't
+          // return here.
         }
       }
       break;
