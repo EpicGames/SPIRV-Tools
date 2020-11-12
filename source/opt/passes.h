@@ -44,6 +44,11 @@
 #include "source/opt/flatten_decoration_pass.h"
 #include "source/opt/fold_spec_constant_op_and_composite_pass.h"
 #include "source/opt/freeze_spec_constant_value_pass.h"
+// UE Change Begin: Implement a fused-multiply-add pass to reduce the
+// possibility of re-association.
+#include "source/opt/fused_multiply_add_pass.h"
+// UE Change End: Implement a fused-multiply-add pass to reduce the possibility
+// of re-association.
 #include "source/opt/graphics_robust_access_pass.h"
 #include "source/opt/if_conversion.h"
 #include "source/opt/inline_exhaustive_pass.h"

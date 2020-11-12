@@ -976,6 +976,7 @@ Optimizer::PassToken CreateInterfaceVariableScalarReplacementPass();
 // from every function in the module.  This is useful if you want the inliner to
 // inline these functions some reason.
 Optimizer::PassToken CreateRemoveDontInlinePass();
+
 // Create a fix-func-call-param pass to fix non memory argument for the function
 // call, as spirv-validation requires function parameters to be an memory
 // object, currently the pass would remove accesschain pointer argument passed
@@ -1007,6 +1008,14 @@ Optimizer::PassToken CreateInvocationInterlockPlacementPass();
 // Creates a pass to add/remove maximal reconvergence execution mode.
 // This pass either adds or removes maximal reconvergence from all entry points.
 Optimizer::PassToken CreateModifyMaximalReconvergencePass(bool add);
+
+// UE Change Begin: Implement a fused-multiply-add pass to reduce the
+// possibility of re-association. Create a pass that will fuse floating point
+// multiply+add pairs to avoid re-association of instructions.
+Optimizer::PassToken CreateFusedMultiplyAddPass();
+// UE Change End: Implement a fused-multiply-add pass to reduce the possibility
+// of re-association.
+
 }  // namespace spvtools
 
 #endif  // INCLUDE_SPIRV_TOOLS_OPTIMIZER_HPP_
