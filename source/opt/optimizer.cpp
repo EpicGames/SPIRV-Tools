@@ -220,7 +220,18 @@ Optimizer& Optimizer::RegisterPerformancePasses(bool preserve_interface) {
       .RegisterPass(CreateRedundancyEliminationPass())
       .RegisterPass(CreateDeadBranchElimPass())
       .RegisterPass(CreateBlockMergePass())
-      .RegisterPass(CreateSimplificationPass());
+      .RegisterPass(CreateSimplificationPass())
+      // UE Change Begin
+      .RegisterPass(CreateEliminateDeadMembersPass())
+      .RegisterPass(CreateLocalSingleStoreElimPass())
+      .RegisterPass(CreateBlockMergePass())
+      .RegisterPass(CreateLocalMultiStoreElimPass())
+      .RegisterPass(CreateRedundancyEliminationPass())
+      .RegisterPass(CreateSimplificationPass())
+      .RegisterPass(CreateAggressiveDCEPass())
+      .RegisterPass(CreateCFGCleanupPass());
+      // UE Change End
+      ;
 }
 
 Optimizer& Optimizer::RegisterPerformancePasses() {
