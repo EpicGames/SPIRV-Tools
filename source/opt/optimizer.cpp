@@ -531,6 +531,12 @@ bool Optimizer::RegisterPassFromFlag(const std::string& flag,
     RegisterLegalizationPasses(preserve_interface);
   } else if (pass_name == "remove-unused-interface-variables") {
     RegisterPass(CreateRemoveUnusedInterfaceVariablesPass());
+    // UE Change Begin: Implement a fused-multiply-add pass to reduce the
+    // possibility of re-association.
+  } else if (pass_name == "fused-multiply-add") {
+    RegisterPass(CreateFusedMultiplyAddPass());
+    // UE Change End: Implement a fused-multiply-add pass to reduce the
+    // possibility of re-association.
   } else if (pass_name == "graphics-robust-access") {
     RegisterPass(CreateGraphicsRobustAccessPass());
   } else if (pass_name == "wrap-opkill") {
@@ -1194,6 +1200,15 @@ Optimizer::PassToken CreateSplitCombinedImageSamplerPass() {
   return MakeUnique<Optimizer::PassToken::Impl>(
       MakeUnique<opt::SplitCombinedImageSamplerPass>());
 }
+
+// UE Change Begin: Implement a fused-multiply-add pass to reduce the
+// possibility of re-association.
+Optimizer::PassToken CreateFusedMultiplyAddPass() {
+  return MakeUnique<Optimizer::PassToken::Impl>(
+      MakeUnique<opt::FusedMultiplyAddPass>());
+}
+// UE Change End: Implement a fused-multiply-add pass to reduce the possibility
+// of re-association.
 
 }  // namespace spvtools
 
