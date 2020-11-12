@@ -59,6 +59,11 @@ set(SPIRV_TOOLS_OPT_SOURCES
   fold_spec_constant_op_and_composite_pass.h
   freeze_spec_constant_value_pass.h
   function.h
+# UE Change Begin: Implement a fused-multiply-add pass to reduce the
+# possibility of re-association.
+  fused_multiply_add_pass.h
+# UE Change End: Implement a fused-multiply-add pass to reduce the
+# possibility of re-association.
   graph.h
   graphics_robust_access_pass.h
   if_conversion.h
@@ -183,6 +188,11 @@ set(SPIRV_TOOLS_OPT_SOURCES
   fold_spec_constant_op_and_composite_pass.cpp
   freeze_spec_constant_value_pass.cpp
   function.cpp
+# UE Change Begin: Implement a fused-multiply-add pass to reduce the
+# possibility of re-association.
+  fused_multiply_add_pass.cpp
+# UE Change End: Implement a fused-multiply-add pass to reduce the
+# possibility of re-association.
   graph.cpp
   graphics_robust_access_pass.cpp
   if_conversion.cpp
