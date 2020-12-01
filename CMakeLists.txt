@@ -238,7 +238,10 @@ if(NOT COMMAND find_host_program)
 endif()
 
 # Tests require Python3
-find_host_package(Python3 REQUIRED)
+# UE Change Begin: Support CMake 3.12+ in finding python3
+find_package(Python3 COMPONENTS Interpreter Development)
+#find_host_package(PythonInterp 3 REQUIRED)
+# UE Change End: Support CMake 3.12+ in finding python3
 
 # Check for symbol exports on Linux.
 # At the moment, this check will fail on the OSX build machines for the Android NDK.
