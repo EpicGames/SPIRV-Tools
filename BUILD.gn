@@ -580,6 +580,8 @@ static_library("spvtools_opt") {
     "source/opt/amd_ext_to_khr.h",
     "source/opt/analyze_live_input_pass.cpp",
     "source/opt/analyze_live_input_pass.h",
+    "source/opt/android_driver_patch_pass.cpp",
+    "source/opt/android_driver_patch_pass.h",
     "source/opt/basic_block.cpp",
     "source/opt/basic_block.h",
     "source/opt/block_merge_pass.cpp",

@@ -1016,6 +1016,10 @@ Optimizer::PassToken CreateFusedMultiplyAddPass();
 // UE Change End: Implement a fused-multiply-add pass to reduce the possibility
 // of re-association.
 
+// UE Change Begin: Added support for Android driver patch pass to fix platform specific issues
+Optimizer::PassToken CreateAndroidDriverPatchPass();
+// UE Change End: Added support for Android driver patch pass to fix platform specific issues
+
 }  // namespace spvtools
 
 #endif  // INCLUDE_SPIRV_TOOLS_OPTIMIZER_HPP_

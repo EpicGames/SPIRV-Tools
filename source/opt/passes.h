@@ -20,6 +20,9 @@
 #include "source/opt/aggressive_dead_code_elim_pass.h"
 #include "source/opt/amd_ext_to_khr.h"
 #include "source/opt/analyze_live_input_pass.h"
+// UE Change Begin: Added support for Android driver patch pass to fix platform specific issues
+#include "source/opt/android_driver_patch_pass.h"
+// UE Change End: Added support for Android driver patch pass to fix platform specific issues
 #include "source/opt/block_merge_pass.h"
 #include "source/opt/ccp_pass.h"
 #include "source/opt/cfg_cleanup_pass.h"
