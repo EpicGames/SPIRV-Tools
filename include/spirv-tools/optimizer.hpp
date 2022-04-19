@@ -987,6 +987,10 @@ Optimizer::PassToken CreateFusedMultiplyAddPass();
 // UE Change End: Implement a fused-multiply-add pass to reduce the possibility
 // of re-association.
 
+// UE Change Begin: Added support for Android driver patch pass to fix platform specific issues
+Optimizer::PassToken CreateAndroidDriverPatchPass();
+// UE Change End: Added support for Android driver patch pass to fix platform specific issues
+
 // Creates a pass to remap bindings to avoid conflicts, assuming the module
 // is valid for Vulkan.  A conflict exits when an entry point uses two distinct
 // variables with the same descriptor set and binding.  Vulkan allows one kind
