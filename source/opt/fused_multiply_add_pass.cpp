@@ -31,7 +31,7 @@ Pass::Status FusedMultiplyAddPass::Process() {
       for (auto iter = block.begin(); iter != block.end(); ++iter) {
         auto* instruction = &(*iter);
         switch (instruction->opcode()) {
-          case SpvOpFMul:
+          case spv::Op::OpFMul:
             if (ProcessSpvOpFMul(ctx, instruction, inst_set_id)) {
               status = Status::SuccessWithChange;
             }
@@ -53,7 +53,7 @@ bool FusedMultiplyAddPass::ProcessSpvOpFMul(IRContext* ctx,
   get_def_use_mgr()->ForEachUser(
     instruction,
     [inst_set_id, instruction, ctx, &modified](Instruction* use) {
-      if (use->opcode() == SpvOpFAdd &&
+      if (use->opcode() == spv::Op::OpFAdd &&
 	      use->type_id() == instruction->type_id()) {
         InstructionBuilder builder(
           ctx, use,
