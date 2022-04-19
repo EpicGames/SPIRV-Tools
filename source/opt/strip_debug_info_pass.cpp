@@ -76,7 +76,7 @@ Pass::Status StripDebugInfoPass::Process() {
 
   // UE Change Begin: OpName is required in UE
   for (auto& dbg : context()->debugs2()) {
-    if (dbg.opcode() != SpvOpName) to_kill.push_back(&dbg);
+    if (dbg.opcode() != spv::Op::OpName) to_kill.push_back(&dbg);
   }
   // UE Change Begin: OpName is required in UE
   for (auto& dbg : context()->debugs3()) to_kill.push_back(&dbg);
