@@ -991,6 +991,10 @@ Optimizer::PassToken CreateFusedMultiplyAddPass();
 Optimizer::PassToken CreateAndroidDriverPatchPass();
 // UE Change End: Added support for Android driver patch pass to fix platform specific issues
 
+// UE Change Begin: Added support for reducing const arrays to structs
+Optimizer::PassToken CreateReduceConstArrayToStructPass();
+// UE Change End: Added support for reducing const arrays to structs
+
 // Creates a pass to remap bindings to avoid conflicts, assuming the module
 // is valid for Vulkan.  A conflict exits when an entry point uses two distinct
 // variables with the same descriptor set and binding.  Vulkan allows one kind
