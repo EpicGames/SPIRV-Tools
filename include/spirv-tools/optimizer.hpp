@@ -1020,6 +1020,10 @@ Optimizer::PassToken CreateFusedMultiplyAddPass();
 Optimizer::PassToken CreateAndroidDriverPatchPass();
 // UE Change End: Added support for Android driver patch pass to fix platform specific issues
 
+// UE Change Begin: Added support for reducing const arrays to structs
+Optimizer::PassToken CreateReduceConstArrayToStructPass();
+// UE Change End: Added support for reducing const arrays to structs
+
 }  // namespace spvtools
 
 #endif  // INCLUDE_SPIRV_TOOLS_OPTIMIZER_HPP_

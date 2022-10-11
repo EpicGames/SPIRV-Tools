@@ -561,6 +561,10 @@ bool Optimizer::RegisterPassFromFlag(const std::string& flag,
     RegisterPass(CreateAndroidDriverPatchPass());
     // UE Change End: Added support for Android driver patch pass to fix platform specific issues
     // possibility of re-association.
+	// UE Change Begin: Added support for reducing const arrays to structs
+  } else if (pass_name == "reduce-const-array-to-struct") {
+    RegisterPass(CreateReduceConstArrayToStructPass());
+    // UE Change End: Added support for reducing const arrays to structs
   } else if (pass_name == "graphics-robust-access") {
     RegisterPass(CreateGraphicsRobustAccessPass());
   } else if (pass_name == "wrap-opkill") {
@@ -1207,6 +1211,13 @@ Optimizer::PassToken CreateAndroidDriverPatchPass() {
       MakeUnique<opt::AndroidDriverPatchPass>());
 }
 // UE Change End: Added support for Android driver patch pass to fix platform specific issues
+
+// UE Change Begin: Added support for reducing const arrays to structs
+Optimizer::PassToken CreateReduceConstArrayToStructPass() {
+  return MakeUnique<Optimizer::PassToken::Impl>(
+      MakeUnique<opt::ReduceConstArrayToStructPass>());
+}
+// UE Change End: Added support for reducing const arrays to structs
 
 }  // namespace spvtools
 

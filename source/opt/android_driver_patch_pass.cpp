@@ -101,67 +101,44 @@ bool AndroidDriverPatchPass::FixupOpPhiMatrix4x3(Instruction* inst,
     return false;
   }
 
-  // Extract first operand
-  Operand valueType1Op = inst->GetInOperand(0);
-  Instruction* valueType1Inst =
-    context()->get_def_use_mgr()->GetDef(valueType1Op.words[0]);
+  uint32_t numArgs = inst->NumInOperands();
+  uint32_t numOps = numArgs / 2;
 
-  std::vector<uint32_t> valueType1Components;
-  for (uint32_t i = 0; i < ColumnCount; ++i) {
-    const uint32_t newVarID = context()->TakeNextId();
+  std::map<uint32_t, std::vector<uint32_t>> valueTypeComponents;
 
-	std::vector<Operand> operands;
-    operands.push_back({SPV_OPERAND_TYPE_ID, {valueType1Op.words[0]}});
-    operands.push_back({SPV_OPERAND_TYPE_LITERAL_INTEGER, {i}});
+  for (uint32_t n = 0; n < numOps; n++)
+  {
+    Operand valueTypeOp = inst->GetInOperand(n*2);
+    Instruction* valueTypeInst = context()->get_def_use_mgr()->GetDef(valueTypeOp.words[0]);
 
-    Instruction* newVar =
-        new Instruction(context(), spv::Op::OpCompositeExtract,
-                        typeInst->GetOperand(1).words[0],
-                        newVarID, operands);
-    valueType1Components.push_back(newVarID);
-
-	if (HasRelaxedPrecision(valueType1Op.words[0])) {
-      AddRelaxedPrecision(newVarID);
-    }
-
-	get_def_use_mgr()->AnalyzeInstDef(newVar);
-    get_def_use_mgr()->AnalyzeInstUse(newVar);
+	if (valueTypeInst->opcode() == spv::Op::OpUndef)
+	  return false;
     
-	// If the variable is a constant, then insert at the beginning of the block
-	if(!valueType1Inst->IsConstant()) {
-      InsertAfterOpPhi(valueType1Inst, newVar);
-    } else {
-      newVar->InsertBefore(entryPoint);
-	}
-  }
-  
-  // Extract second operand
-  Operand valueType2Op = inst->GetInOperand(2);
-  Instruction* valueType2Inst = context()->get_def_use_mgr()->GetDef(valueType2Op.words[0]);
+	valueTypeComponents.insert({n, {}});
 
-  std::vector<uint32_t> valueType2Components;
-  for (uint32_t i = 0; i < ColumnCount; ++i) {
-    const uint32_t newVarID = context()->TakeNextId();
+	for (uint32_t i = 0; i < ColumnCount; ++i) {
+      const uint32_t newVarID = context()->TakeNextId();
 
-    std::vector<Operand> operands;
-    operands.push_back({SPV_OPERAND_TYPE_ID, {valueType2Op.words[0]}});
-    operands.push_back({SPV_OPERAND_TYPE_LITERAL_INTEGER, {i}});
+      std::vector<Operand> operands;
+      operands.push_back({SPV_OPERAND_TYPE_ID, {valueTypeOp.words[0]}});
+      operands.push_back({SPV_OPERAND_TYPE_LITERAL_INTEGER, {i}});
 
-    Instruction* newVar = new Instruction(context(), spv::Op::OpCompositeExtract, typeInst->GetOperand(1).words[0], newVarID, operands);
-    valueType2Components.push_back(newVarID);
+      Instruction* newVar = new Instruction(context(), spv::Op::OpCompositeExtract, typeInst->GetOperand(1).words[0], newVarID, operands);
+      valueTypeComponents[n].push_back(newVarID);
 
-	if (HasRelaxedPrecision(valueType2Op.words[0])) {
-      AddRelaxedPrecision(newVarID);
-    }
+	  if (HasRelaxedPrecision(valueTypeOp.words[0])) {
+        AddRelaxedPrecision(newVarID);
+      }
 
-	get_def_use_mgr()->AnalyzeInstDef(newVar);
-    get_def_use_mgr()->AnalyzeInstUse(newVar);
+      get_def_use_mgr()->AnalyzeInstDef(newVar);
+      get_def_use_mgr()->AnalyzeInstUse(newVar);
 
-	// If the variable is a constant, then insert at the beginning of the block
-	if (!valueType2Inst->IsConstant()) {
-      InsertAfterOpPhi(valueType2Inst, newVar);
-    } else {
-      newVar->InsertBefore(entryPoint);
+      // If the variable is a constant, then insert at the beginning of the block
+      if (!valueTypeInst->IsConstant()) {
+		InsertAfterOpPhi(valueTypeInst, newVar);
+      } else {
+        newVar->InsertBefore(entryPoint);
+      }
     }
   }
 
@@ -171,13 +148,13 @@ bool AndroidDriverPatchPass::FixupOpPhiMatrix4x3(Instruction* inst,
     const uint32_t newVarID = context()->TakeNextId();
 
     std::vector<Operand> operands;
-    operands.push_back({SPV_OPERAND_TYPE_ID, {valueType1Components[i]}});
-    operands.push_back({SPV_OPERAND_TYPE_ID, {inst->GetInOperand(1).words[0]}});
-    operands.push_back({SPV_OPERAND_TYPE_ID, {valueType2Components[i]}});
-    operands.push_back({SPV_OPERAND_TYPE_ID, {inst->GetInOperand(3).words[0]}});
 
-    Instruction* newVar = new Instruction(context(), spv::Op::OpPhi, typeInst->GetOperand(1).words[0],
-                        newVarID, operands);
+	for (uint32_t n = 0; n < numOps; n++) {
+      operands.push_back({SPV_OPERAND_TYPE_ID, {valueTypeComponents[n][i]}});
+      operands.push_back({SPV_OPERAND_TYPE_ID, {inst->GetInOperand(n*2 + 1).words[0]}});
+	}
+
+    Instruction* newVar = new Instruction(context(), spv::Op::OpPhi, typeInst->GetOperand(1).words[0], newVarID, operands);
     
 	if (HasRelaxedPrecision(inst->GetInOperand(1).words[0]) && HasRelaxedPrecision(inst->GetInOperand(3).words[0])) {
       AddRelaxedPrecision(newVarID);
