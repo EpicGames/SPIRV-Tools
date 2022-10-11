@@ -204,6 +204,12 @@ class SPIRV_TOOLS_EXPORT OptimizerOptions {
     spvOptimizerOptionsSetPreserveBindings(options_, preserve_bindings);
   }
 
+  // UE Change Begin: Allow preserving unused inputs in shaders, used for OpenGL to match input/outputs
+  void set_preserve_storage_input(bool preserve_storage_input) {
+    spvOptimizerOptionsSetPreserveStorageInput(options_, preserve_storage_input);
+  }
+  // UE Change End: Allow preserving unused inputs in shaders, used for OpenGL to match input/outputs
+
   // Records whether all specialization constants within the module
   // should be preserved.
   void set_preserve_spec_constants(bool preserve_spec_constants) {
