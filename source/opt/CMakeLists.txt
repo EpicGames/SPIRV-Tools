@@ -101,6 +101,7 @@ set(SPIRV_TOOLS_OPT_SOURCES
   pass_manager.h
   private_to_local_pass.h
   propagator.h
+  reduce_const_array_to_struct_pass.h
   reduce_load_size.h
   redundancy_elimination.h
   reflect.h
@@ -221,6 +222,7 @@ set(SPIRV_TOOLS_OPT_SOURCES
   pass_manager.cpp
   private_to_local_pass.cpp
   propagator.cpp
+  reduce_const_array_to_struct_pass.cpp
   reduce_load_size.cpp
   redundancy_elimination.cpp
   register_pressure.cpp

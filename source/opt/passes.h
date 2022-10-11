@@ -23,6 +23,9 @@
 // UE Change Begin: Added support for Android driver patch pass to fix platform specific issues
 #include "source/opt/android_driver_patch_pass.h"
 // UE Change End: Added support for Android driver patch pass to fix platform specific issues
+// UE Change Begin: Added support for reducing const arrays to structs
+#include "source/opt/reduce_const_array_to_struct_pass.h"
+// UE Change End: Added support for reducing const arrays to structs
 #include "source/opt/block_merge_pass.h"
 #include "source/opt/ccp_pass.h"
 #include "source/opt/cfg_cleanup_pass.h"
