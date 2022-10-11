@@ -50,6 +50,11 @@ class AndroidDriverPatchPass : public Pass {
   // Workaround for a bug on Adreno Vulkan drivers where passing setting 
   // Depth=2 on OpTypeImage results in a crash
   bool FixupOpTypeImage(Instruction* inst);
+
+ private:
+  bool HasRelaxedPrecision(uint32_t operand_id);
+  void AddRelaxedPrecision(uint32_t operand_id);
+  bool RemoveRelaxedPrecision(uint32_t operand_id);
 };
 
 }  // namespace opt
