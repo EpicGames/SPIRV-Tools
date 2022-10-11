@@ -700,6 +700,10 @@ bool Optimizer::Run(const uint32_t* original_binary,
   context->set_preserve_bindings(opt_options->preserve_bindings_);
   context->set_preserve_spec_constants(opt_options->preserve_spec_constants_);
 
+  // UE Change Begin: Allow preserving unused inputs in shaders, used for OpenGL to match input/outputs
+  context->set_preserve_storage_input(opt_options->preserve_storage_input_);
+  // UE Change End: Allow preserving unused inputs in shaders, used for OpenGL to match input/outputs
+
   impl_->pass_manager.SetValidatorOptions(&opt_options->val_options_);
   impl_->pass_manager.SetTargetEnv(impl_->target_env);
   auto status = impl_->pass_manager.Run(context.get());

@@ -735,6 +735,11 @@ SPIRV_TOOLS_EXPORT void spvOptimizerOptionsSetMaxIdBound(
 SPIRV_TOOLS_EXPORT void spvOptimizerOptionsSetPreserveBindings(
     spv_optimizer_options options, bool val);
 
+// UE Change Begin: Allow preserving unused inputs in shaders, used for OpenGL to match input/outputs
+SPIRV_TOOLS_EXPORT void spvOptimizerOptionsSetPreserveStorageInput(
+    spv_optimizer_options options, bool val);
+// UE Change End: Allow preserving unused inputs in shaders, used for OpenGL to match input/outputs
+
 // Records whether all specialization constants within the module
 // should be preserved.
 SPIRV_TOOLS_EXPORT void spvOptimizerOptionsSetPreserveSpecConstants(

@@ -613,6 +613,13 @@ class IRContext {
     preserve_bindings_ = should_preserve_bindings;
   }
 
+  // UE Change Begin: Allow preserving unused inputs in shaders, used for OpenGL to match input/outputs
+  bool preserve_storage_input() const { return preserve_storage_input_; }
+  void set_preserve_storage_input(bool preserve_storage_input) {
+    preserve_storage_input_ = preserve_storage_input;
+  }
+  // UE Change End: Allow preserving unused inputs in shaders, used for OpenGL to match input/outputs
+
   bool preserve_spec_constants() const { return preserve_spec_constants_; }
   void set_preserve_spec_constants(bool should_preserve_spec_constants) {
     preserve_spec_constants_ = should_preserve_spec_constants;
@@ -925,6 +932,10 @@ class IRContext {
 
   // Whether all bindings within |module_| should be preserved.
   bool preserve_bindings_;
+
+  // UE Change Begin: Allow preserving unused inputs in shaders, used for OpenGL to match input/outputs
+  bool preserve_storage_input_;
+  // UE Change End: Allow preserving unused inputs in shaders, used for OpenGL to match input/outputs
 
   // Whether all specialization constants within |module_|
   // should be preserved.
