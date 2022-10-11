@@ -26,7 +26,10 @@ struct spv_optimizer_options_t {
         val_options_(),
         max_id_bound_(kDefaultMaxIdBound),
         preserve_bindings_(false),
-        preserve_spec_constants_(false) {}
+        preserve_spec_constants_(false),
+  // UE Change Begin: Allow preserving unused inputs in shaders, used for OpenGL to match input/outputs
+        preserve_storage_input_(false) {}
+  // UE Change End: Allow preserving unused inputs in shaders, used for OpenGL to match input/outputs
 
   // When true the validator will be run before optimizations are run.
   bool run_validator_;
@@ -45,5 +48,9 @@ struct spv_optimizer_options_t {
   // When true, all specialization constants within the module should be
   // preserved.
   bool preserve_spec_constants_;
+
+  // UE Change Begin: Allow preserving unused inputs in shaders, used for OpenGL to match input/outputs
+  bool preserve_storage_input_;
+  // UE Change End: Allow preserving unused inputs in shaders, used for OpenGL to match input/outputs
 };
 #endif  // SOURCE_SPIRV_OPTIMIZER_OPTIONS_H_
