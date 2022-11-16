@@ -59,7 +59,7 @@ Pass::Status AndroidDriverPatchPass::Process() {
 void InsertAfterOpPhi(Instruction* curInst, Instruction* newInst) {
   // OpPhi Instructions must be the first instructions after a branch
   Instruction* nextAvailableNode = curInst;
-  while (nextAvailableNode->NextNode()->opcode() == SpvOpPhi) {
+  while (nextAvailableNode->NextNode()->opcode() == spv::Op::OpPhi) {
     if (nextAvailableNode->NextNode()) {
       nextAvailableNode = nextAvailableNode->NextNode();
     } else {
@@ -339,11 +339,9 @@ bool AndroidDriverPatchPass::FixupOpTypeImage(Instruction* inst) {
 }
 
 bool AndroidDriverPatchPass::HasRelaxedPrecision(uint32_t operand_id) {
-  std::vector<Instruction*> decorations =
-      get_decoration_mgr()->GetDecorationsFor(operand_id, false);
+  std::vector<Instruction*> decorations = get_decoration_mgr()->GetDecorationsFor(operand_id, false);
   for (Instruction* decoration : decorations) {
-    if (decoration->GetSingleWordInOperand(1) ==
-        SpvDecorationRelaxedPrecision) {
+    if (spv::Decoration(decoration->GetSingleWordInOperand(1)) == spv::Decoration::RelaxedPrecision) {
       return true;
     }
   }
@@ -355,7 +353,7 @@ void AndroidDriverPatchPass::AddRelaxedPrecision(uint32_t operand_id) {
     return;
   }
 
-  get_decoration_mgr()->AddDecoration(operand_id, SpvDecorationRelaxedPrecision);
+  get_decoration_mgr()->AddDecoration(operand_id, uint32_t(spv::Decoration::RelaxedPrecision));
 
   return;
 }
@@ -364,7 +362,7 @@ bool AndroidDriverPatchPass::RemoveRelaxedPrecision(uint32_t operand_id) {
   std::vector<Instruction*> decorations = get_decoration_mgr()->GetDecorationsFor(operand_id, false);
 
   for (Instruction* decoration : decorations) {
-    if (decoration->GetSingleWordInOperand(1) == SpvDecorationRelaxedPrecision) {
+    if (spv::Decoration(decoration->GetSingleWordInOperand(1)) == spv::Decoration::RelaxedPrecision) {
       get_decoration_mgr()->RemoveDecoration(decoration);
       return true;
     }
