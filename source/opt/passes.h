@@ -26,6 +26,9 @@
 // UE Change Begin: Added support for reducing const arrays to structs
 #include "source/opt/reduce_const_array_to_struct_pass.h"
 // UE Change End: Added support for reducing const arrays to structs
+// UE Change Begin: Convert-Composite-To-Op-Access-Chain-Pass
+#include "source/opt/convert_composite_to_op_access_chain.h"
+// UE Change End: Convert-Composite-To-Op-Access-Chain-Pass
 #include "source/opt/block_merge_pass.h"
 #include "source/opt/ccp_pass.h"
 #include "source/opt/cfg_cleanup_pass.h"
