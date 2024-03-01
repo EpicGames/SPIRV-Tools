@@ -26,44 +26,75 @@ Pass::Status ReduceConstArrayToStructPass::Process() {
   bool modified = false;
   std::vector<Instruction*> ArrayInst;
   
-  context()->module()->ForEachInst([&ArrayInst](Instruction* inst) {
+  // Find all array variables
+  context()->module()->ForEachInst([&ArrayInst, this](Instruction* inst) {
+
     if (inst->opcode() == spv::Op::OpTypeArray) {
-      ArrayInst.push_back(inst);
+
+      bool bValid = false;
+	  // Check that the array variables are 16 bytes wide
+	  // TODO: Check Type
+      context()->get_def_use_mgr()->ForEachUser(inst, [&bValid](Instruction* user) {
+        if (user->opcode() == spv::Op::OpDecorate) {
+          if (user->GetOperand(1).words[0] == (uint32_t)spv::Decoration::ArrayStride && user->GetOperand(2).words[0] == 16) {
+            bValid = true;
+          }
+        }
+      });
+
+	  if(bValid) {
+        ArrayInst.push_back(inst);
+      }
     }
   });
 
-  for (Instruction* inst : ArrayInst) {
-    modified |= ReduceArray(inst);
+  std::vector<ArrayStruct> ArrayStructs;
+
+  // Look for structs which use the array type
+  for (auto arrayType : ArrayInst) {
+    context()->get_def_use_mgr()->ForEachUser(arrayType, [&ArrayStructs, &arrayType](Instruction* user) {
+	  
+      if (user->opcode() == spv::Op::OpTypeStruct) {
+        for (uint32_t idx = 1; idx < user->NumOperands(); idx++) {
+	      if (user->GetOperand(idx).words[0] == arrayType->GetOperand(0).words[0]) {
+            ArrayStruct NewStruct;
+            NewStruct.Array = arrayType;
+            NewStruct.Struct = user;
+            NewStruct.MemberIdx = idx - 1;
+            ArrayStructs.push_back(NewStruct);
+	      }
+        }
+      }
+    });
+  }
+
+  // Sort by member index
+  std::sort(ArrayStructs.begin(), ArrayStructs.end(), [](const ArrayStruct& a, const ArrayStruct& b) -> bool {
+    return a.MemberIdx > b.MemberIdx;
+  });
+
+  for (auto & arrayStruct : ArrayStructs) {
+    Instruction* NewStruct = nullptr;
+    Instruction* OldStruct = arrayStruct.Struct;
+    modified |= ReduceArray(arrayStruct, NewStruct);
+
+	if (NewStruct) {
+      for (auto& NextStruct : ArrayStructs) {
+        if (NextStruct.Struct == OldStruct) {
+          NextStruct.Struct = NewStruct;
+        }
+      }
+    }
   }
 
   return modified ? Status::SuccessWithChange : Status::SuccessWithoutChange;
 }
 
-bool ReduceConstArrayToStructPass::ReduceArray(Instruction* inst) {
+bool ReduceConstArrayToStructPass::ReduceArray(ArrayStruct& arrayStruct, Instruction *& NewStruct) {
   
-  Instruction* arrayType = context()->get_def_use_mgr()->GetDef(inst->GetOperand(0).words[0]);
-  Instruction* structType = nullptr;
-  Instruction* decorateType = nullptr;
-
-  // Look for structs which use the array type
-  context()->get_def_use_mgr()->ForEachUser(arrayType, [&structType, &decorateType, &arrayType](Instruction* user) {
-    if (user->opcode() == spv::Op::OpTypeStruct) {
-	  // Only consider structs that contains a single array
-      if(user->GetOperand(1).words[0] == arrayType->GetOperand(0).words[0] && user->NumOperands() == 2) {
-        structType = user;
-	  }
-    }
-
-	if (user->opcode() == spv::Op::OpDecorate) {
-      if (spv::Decoration(user->GetOperand(1).words[0]) == spv::Decoration::ArrayStride && user->GetOperand(2).words[0] == 16) {
-        decorateType = user;
-      }
-    }
-  });
-
-  if (structType == nullptr || decorateType == nullptr)
-	return false;
-
+  Instruction* arrayType = context()->get_def_use_mgr()->GetDef(arrayStruct.Array->GetOperand(0).words[0]);
+  Instruction* structType = arrayStruct.Struct;
+  uint32_t memberIdx = arrayStruct.MemberIdx;
   bool bIsGlobal = false;
 
   // We ignore global structures 
@@ -83,19 +114,41 @@ bool ReduceConstArrayToStructPass::ReduceArray(Instruction* inst) {
   Instruction* memberDecorateType = nullptr;
   Instruction* memberNameType = nullptr;
 
+  struct MemberInfo
+  {
+    std::vector<Instruction*> MemberDecorations;
+    Instruction* MemberDecorationOffset;
+    Instruction* MemberName;
+  };
+
+  std::map<uint32_t, MemberInfo> memberInfoMap;
+
   // Find the instructions related to the structure
-  context()->get_def_use_mgr()->ForEachUser(structType, [&pointerType, &memberDecorateType, &memberNameType, &structType](Instruction* user) {
+  context()->get_def_use_mgr()->ForEachUser(structType, [&pointerType, &memberInfoMap, &structType](Instruction* user) {
     if (user->opcode() == spv::Op::OpTypePointer) {
       if(user->GetOperand(2).words[0] == structType->GetOperand(0).words[0]) {
         pointerType = user;
 	  }
     } else if (user->opcode() == spv::Op::OpMemberDecorate) {
       if (user->GetOperand(0).words[0] == structType->GetOperand(0).words[0]) {
-       memberDecorateType = user;
+        uint32_t structIdx = user->GetOperand(1).words[0];
+        if (memberInfoMap.find(structIdx) == memberInfoMap.end()) {
+          memberInfoMap.insert({structIdx, {std::vector<Instruction*>(), nullptr, nullptr}});
+        }
+        if (user->GetOperand(2).words[0] == (uint32_t)spv::Decoration::Offset) {
+          memberInfoMap[structIdx].MemberDecorationOffset = user; 
+        } else {
+          memberInfoMap[structIdx].MemberDecorations.push_back(user); 
+        }
+        
       }
     } else if (user->opcode() == spv::Op::OpMemberName) {
       if (user->GetOperand(0).words[0] == structType->GetOperand(0).words[0]) {
-        memberNameType = user;
+        uint32_t structIdx = user->GetOperand(1).words[0];
+        if (memberInfoMap.find(structIdx) == memberInfoMap.end()) {
+          memberInfoMap.insert({structIdx, {std::vector<Instruction*>(), nullptr, nullptr}});
+        }
+        memberInfoMap[structIdx].MemberName = user; 
       }
     } 
   });
@@ -103,6 +156,14 @@ bool ReduceConstArrayToStructPass::ReduceArray(Instruction* inst) {
   if (pointerType == nullptr) {
     return false;
   }
+
+  // We don't expect any additional decorations than offset for array
+  if (memberInfoMap[memberIdx].MemberDecorations.size() > 0) {
+    return false;
+  }
+
+  memberDecorateType = memberInfoMap[memberIdx].MemberDecorationOffset;
+  memberNameType = memberInfoMap[memberIdx].MemberName;
 
   Instruction* variableType = nullptr;
   context()->get_def_use_mgr()->ForEachUser(
@@ -127,21 +188,38 @@ bool ReduceConstArrayToStructPass::ReduceArray(Instruction* inst) {
   std::vector<AccessChainData> accessChains;
   bool bInvalid = false;
 
+  uint32_t structOffset = memberDecorateType->GetOperand(3).words[0];
+
   // Check for const access and that usage of variable is only OpAccessChain
   context()->get_def_use_mgr()->ForEachUser(
-    variableType, [&variableType, &accessChains, &bInvalid, this](Instruction* user) {
+    variableType, [&variableType, &accessChains, &bInvalid, &structOffset, &memberIdx, this](Instruction* user) {
     if (user->opcode() == spv::Op::OpAccessChain) {
-      if (user->GetOperand(2).words[0] == variableType->GetOperand(1).words[0]) {
-		if (user->NumOperands() < 5) {
+	  bool bMatchesStruct = user->GetOperand(2).words[0] == variableType->GetOperand(1).words[0];
+	  
+      if (bMatchesStruct) {
+		if (user->NumOperands() < 4) {
           bInvalid = true;
         } else {
-          Operand constOperand = user->GetOperand(4);
-          const Instruction* ConstInst = context()->get_def_use_mgr()->GetDef(constOperand.words[0]);
-          if (ConstInst->opcode() != spv::Op::OpConstant) {
-            bInvalid = true;
+		  const Instruction* ConstIdx = context()->get_def_use_mgr()->GetDef(user->GetOperand(3).words[0]);
+          if (ConstIdx->opcode() != spv::Op::OpConstant) {
+		    bInvalid = true;
           } else {
-            uint32_t ConstVal = ConstInst->GetOperand(2).words[0];
-            accessChains.push_back({ConstVal, ConstVal * 4 * 4, user});
+            bool bMatchesArray = ConstIdx->GetOperand(2).words[0] == memberIdx;
+            if (bMatchesArray) {
+			  // Can't convert because access cannot be guarenteed as const
+              if (user->NumOperands() < 5) {
+                bInvalid = true;
+              } else {
+				Operand constOperand = user->GetOperand(4);
+                const Instruction* ConstInst = context()->get_def_use_mgr()->GetDef(constOperand.words[0]);
+                if (ConstInst->opcode() != spv::Op::OpConstant) {
+                  bInvalid = true;
+                } else {
+                  uint32_t ConstVal = ConstInst->GetOperand(2).words[0];
+                  accessChains.push_back({ConstVal, (ConstVal * 4 * 4) + structOffset, user});
+				}
+              }
+			}
           }
 		}
       }
@@ -152,10 +230,10 @@ bool ReduceConstArrayToStructPass::ReduceArray(Instruction* inst) {
 
   });
 
-  std::sort(accessChains.begin(), accessChains.end(), 
-	  [](const AccessChainData& a, const AccessChainData& b) -> bool {
-        return a.offset < b.offset;
-      });
+  // Sort elements into offset order
+  std::sort(accessChains.begin(), accessChains.end(), [](const AccessChainData& a, const AccessChainData& b) -> bool {
+    return a.offset < b.offset;
+  });
 
   if (bInvalid) {
     return false;
@@ -167,6 +245,8 @@ bool ReduceConstArrayToStructPass::ReduceArray(Instruction* inst) {
   std::map<uint32_t, uint32_t> uniqueKeys; 
 
   uint32_t n = 0;
+  uint32_t numConstants = 0;
+
   for (auto & AccessChainData : accessChains) {
 
 	// Create the OpMemberName instructions
@@ -174,11 +254,11 @@ bool ReduceConstArrayToStructPass::ReduceArray(Instruction* inst) {
       {
         std::vector<Operand> operands;
         operands.push_back({SPV_OPERAND_TYPE_ID, {structType->GetOperand(0).words[0]}});
-        operands.push_back({SPV_OPERAND_TYPE_LITERAL_INTEGER, {n}});
+        operands.push_back({SPV_OPERAND_TYPE_LITERAL_INTEGER, {n + memberIdx}});
 
-        std::string MemberName = structName + "_" + std::to_string(AccessChainData.constantValue);
-        auto MemberNameVector = utils::MakeVector(MemberName);
-        operands.push_back({SPV_OPERAND_TYPE_LITERAL_STRING, std::move(MemberNameVector)});
+        std::string memberName = structName + "_" + std::to_string(AccessChainData.constantValue);
+        auto memberNameVector = utils::MakeVector(memberName);
+        operands.push_back({SPV_OPERAND_TYPE_LITERAL_STRING, std::move(memberNameVector)});
 
         Instruction* NewVar = new Instruction(context(), spv::Op::OpMemberName, 0, 0, operands);
         newOpMemberNames.push_back(NewVar);
@@ -188,7 +268,7 @@ bool ReduceConstArrayToStructPass::ReduceArray(Instruction* inst) {
       {
         std::vector<Operand> operands;
         operands.push_back({SPV_OPERAND_TYPE_ID, {structType->GetOperand(0).words[0]}});
-        operands.push_back({SPV_OPERAND_TYPE_LITERAL_INTEGER, {n}});
+        operands.push_back({SPV_OPERAND_TYPE_LITERAL_INTEGER, {n + memberIdx}});
         operands.push_back({SPV_OPERAND_TYPE_DECORATION, {uint32_t(spv::Decoration::Offset)}});
         operands.push_back({SPV_OPERAND_TYPE_LITERAL_INTEGER, {AccessChainData.offset}});
 
@@ -204,59 +284,110 @@ bool ReduceConstArrayToStructPass::ReduceArray(Instruction* inst) {
 	{
 	  analysis::Integer unsigned_int_type(32, false);
 	  analysis::Type* registered_unsigned_int_type = context()->get_type_mgr()->GetRegisteredType(&unsigned_int_type);
-	  const analysis::Constant* NewConstant = context()->get_constant_mgr()->GetConstant(registered_unsigned_int_type, {uniqueKeys[AccessChainData.constantValue]});
-      Instruction* ConstInst = context()->get_constant_mgr()->GetDefiningInstruction(NewConstant);
-      
-	  get_def_use_mgr()->AnalyzeInstDef(ConstInst);
-      get_def_use_mgr()->AnalyzeInstUse(ConstInst);
+	  const analysis::Constant* newConstant = context()->get_constant_mgr()->GetConstant(registered_unsigned_int_type, {uniqueKeys[AccessChainData.constantValue]+memberIdx});
+      Instruction* constInst = context()->get_constant_mgr()->GetDefiningInstruction(newConstant);
 
       std::vector<Operand> operands;
       
       operands.push_back({SPV_OPERAND_TYPE_ID, {AccessChainData.accessChain->GetOperand(2).words[0]}});
-      operands.push_back({SPV_OPERAND_TYPE_ID, {ConstInst->result_id()}});
+      operands.push_back({SPV_OPERAND_TYPE_ID, {constInst->result_id()}});
       if(AccessChainData.accessChain->NumOperands() > 5) {
         operands.push_back({SPV_OPERAND_TYPE_ID, {AccessChainData.accessChain->GetOperand(5).words[0]}});
 	  }
 
 	  Instruction* newVar = new Instruction(context(), spv::Op::OpAccessChain, AccessChainData.accessChain->GetOperand(0).words[0], AccessChainData.accessChain->result_id(), operands);
-      
-	  get_def_use_mgr()->AnalyzeInstDef(newVar);
-      get_def_use_mgr()->AnalyzeInstUse(newVar);
-
       newVar->InsertBefore(AccessChainData.accessChain);
+
       AccessChainData.accessChain->RemoveFromList();
 	}
   }
 
+  numConstants = n;
+
+  // Offset existing struct members to new indicies
+  for (auto& infoPair : memberInfoMap) {
+    if (infoPair.first > memberIdx) {
+      {
+        Operand& opIdx = infoPair.second.MemberDecorationOffset->GetOperand(1);
+        opIdx.words[0] = opIdx.words[0] + numConstants-1;
+      }
+
+	  for (Instruction* memberDecorateInst : infoPair.second.MemberDecorations) {
+		Operand& opIdx = memberDecorateInst->GetOperand(1);
+		opIdx.words[0] = opIdx.words[0] + numConstants-1;
+	  }
+
+	  {
+        Operand& opIdx = infoPair.second.MemberName->GetOperand(1);
+        opIdx.words[0] = opIdx.words[0] + numConstants-1;
+      }
+    }
+  }
+
+  // Find spv::Op::OpAccessChains using struct and offset
+  context()->get_def_use_mgr()->ForEachUser(
+    variableType, [&variableType, &memberIdx, &numConstants, this](Instruction* user) {
+    if (user->opcode() == spv::Op::OpAccessChain) {
+	  bool bMatchesStruct = user->GetOperand(2).words[0] == variableType->GetOperand(1).words[0];
+	  
+      if (bMatchesStruct) {
+		const Instruction* constIdx = context()->get_def_use_mgr()->GetDef(user->GetOperand(3).words[0]);
+        uint32_t memberAccessIdx = constIdx->GetOperand(2).words[0];
+        if (memberAccessIdx > memberIdx) {
+          Operand constOperand = user->GetOperand(3);
+
+          const Instruction* constInst = context()->get_def_use_mgr()->GetDef(constOperand.words[0]);
+          uint32_t constVal = constInst->GetOperand(2).words[0];
+
+		  analysis::Integer unsigned_int_type(32, false);
+	      analysis::Type* registered_unsigned_int_type = context()->get_type_mgr()->GetRegisteredType(&unsigned_int_type);
+	      const analysis::Constant* NewConstant = context()->get_constant_mgr()->GetConstant(registered_unsigned_int_type, {constVal + numConstants-1});
+          Instruction* newConstInst = context()->get_constant_mgr()->GetDefiningInstruction(NewConstant);
+
+		  user->GetOperand(3).words[0] = newConstInst->result_id();
+		}
+      }
+    }
+  });
+
   for (Instruction* newMemberName : newOpMemberNames) {
-    get_def_use_mgr()->AnalyzeInstDef(newMemberName);
-    get_def_use_mgr()->AnalyzeInstUse(newMemberName);
     newMemberName->InsertBefore(memberNameType);
   }
   memberNameType->RemoveFromList();
 
   for (Instruction* newMemberDecorate : newOpMemberDecorates) {
-  
-	get_def_use_mgr()->AnalyzeInstDef(newMemberDecorate);
-    get_def_use_mgr()->AnalyzeInstUse(newMemberDecorate);
     newMemberDecorate->InsertBefore(memberDecorateType);
   }
   memberDecorateType->RemoveFromList();
 
   {
     std::vector<Operand> operands;
+
+	// Insert types before the new ones
+    for (uint32_t i = 0; i < memberIdx; ++i) {
+      operands.push_back(structType->GetOperand(i + 1));
+	}
+
+	// Insert new types
     for (uint32_t i = 0; i < uniqueKeys.size(); ++i) {
       operands.push_back(arrayType->GetOperand(1));
     }
 
+	// Insert types after the new ones
+	for (uint32_t i = memberIdx + 1; i < memberInfoMap.size(); ++i) {
+      operands.push_back(structType->GetOperand(i + 1));
+    }
+
 	// Create the new struct
-	Instruction* newTypeStructVar = new Instruction(context(), spv::Op::OpTypeStruct, structType->GetOperand(0).words[0], 0, operands);
-
-	get_def_use_mgr()->AnalyzeInstDef(newTypeStructVar);
-    get_def_use_mgr()->AnalyzeInstUse(newTypeStructVar);
-
+	Instruction* newTypeStructVar = new Instruction(context(), spv::Op::OpTypeStruct, 0, structType->GetOperand(0).words[0], operands);
 	newTypeStructVar->InsertBefore(structType);
     structType->RemoveFromList();
+
+    pointerType->GetOperand(2).words[0] = newTypeStructVar->GetOperand(0).words[0];
+
+	context()->InvalidateAnalysesExceptFor(opt::IRContext::kAnalysisNone);
+    
+	NewStruct = newTypeStructVar;
   }
 
   return true;

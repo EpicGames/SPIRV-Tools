@@ -31,7 +31,13 @@ class ReduceConstArrayToStructPass : public Pass {
   Status Process() override;
 
  private:
-  bool ReduceArray(Instruction* inst);
+  struct ArrayStruct {
+    Instruction* Array = nullptr;
+    Instruction* Struct = nullptr;
+    uint32_t MemberIdx;
+  };
+
+  bool ReduceArray(ArrayStruct& arrayStruct, Instruction*& NewStruct);
 };
 
 }  // namespace opt
