@@ -556,6 +556,10 @@ bool Optimizer::RegisterPassFromFlag(const std::string& flag,
   } else if (pass_name == "reduce-const-array-to-struct") {
     RegisterPass(CreateReduceConstArrayToStructPass());
     // UE Change End: Added support for reducing const arrays to structs
+	// UE Change Begin: Convert-Composite-To-Op-Access-Chain-Pass
+  } else if (pass_name == "convert-composite-to-op-access-chain-pass") {
+	 RegisterPass(CreateConvertCompositeToOpAccessChainPass());
+	 // UE Change End: Convert-Composite-To-Op-Access-Chain-Pass
   } else if (pass_name == "graphics-robust-access") {
     RegisterPass(CreateGraphicsRobustAccessPass());
   } else if (pass_name == "wrap-opkill") {
@@ -1246,6 +1250,13 @@ Optimizer::PassToken CreateReduceConstArrayToStructPass() {
       MakeUnique<opt::ReduceConstArrayToStructPass>());
 }
 // UE Change End: Added support for reducing const arrays to structs
+
+// UE Change Begin: Convert-Composite-To-Op-Access-Chain-Pass
+Optimizer::PassToken CreateConvertCompositeToOpAccessChainPass() {
+  return MakeUnique<Optimizer::PassToken::Impl>(
+      MakeUnique<opt::ConvertCompositeToOpAccessChainPass>());
+}
+// UE Change End: Convert-Composite-To-Op-Access-Chain-Pass
 
 }  // namespace spvtools
 
