@@ -81,6 +81,9 @@ bool ReplaceInvalidOpcodePass::RewriteFunction(Function* function,
 
         bool replace = false;
         if (model != spv::ExecutionModel::Fragment &&
+// UE Change Begin: Allow for implicit texture sampling from compute since we support DerivativeGroupLinearNV (SPIRV-Tools issue #5674)
+            model != spv::ExecutionModel::GLCompute &&
+// UE Change End: Allow for implicit texture sampling from compute since we support DerivativeGroupLinearNV (SPIRV-Tools issue #5674)
             IsFragmentShaderOnlyInstruction(inst)) {
           replace = true;
         }
