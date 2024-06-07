@@ -17,6 +17,9 @@
 
 // A single header to include all passes.
 
+// UE Change Begin: Interface variable scalar replacement pass rewrite
+#include "source/opt/adv_interface_var_sroa.h"
+// UE Change End: Interface variable scalar replacement pass rewrite
 #include "source/opt/aggressive_dead_code_elim_pass.h"
 #include "source/opt/amd_ext_to_khr.h"
 #include "source/opt/analyze_live_input_pass.h"

@@ -995,6 +995,22 @@ Optimizer::PassToken CreateAndroidDriverPatchPass();
 Optimizer::PassToken CreateReduceConstArrayToStructPass();
 // UE Change End: Added support for reducing const arrays to structs
 
+// UE Change Begin: Convert-Composite-To-Op-Access-Chain-Pass
+Optimizer::PassToken CreateConvertCompositeToOpAccessChainPass();
+// UE Change End: Convert-Composite-To-Op-Access-Chain-Pass
+
+// UE Change Begin: Interface variable scalar replacement pass rewrite
+// Create an adv-interface-variable-scalar-replacement pass that replaces array
+// or matrix interface variables with a series of scalar or vector interface
+// variables. For example, it replaces `float3 foo[2]` with `float3 foo0, foo1`.
+// If |process_matrices| is true, matrix interface variables will be replaced by
+// scalars.
+// It handles more cases than existing interface-variable-scalar-replacement
+// pass, and hopefully will replace that soon.
+Optimizer::PassToken CreateAdvancedInterfaceVariableScalarReplacementPass(
+    bool process_matrices);
+// UE Change End: Interface variable scalar replacement pass rewrite
+
 // Creates a pass to remap bindings to avoid conflicts, assuming the module
 // is valid for Vulkan.  A conflict exits when an entry point uses two distinct
 // variables with the same descriptor set and binding.  Vulkan allows one kind

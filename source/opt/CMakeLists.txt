@@ -13,10 +13,15 @@
 # limitations under the License.
 set(SPIRV_TOOLS_OPT_SOURCES
   fix_func_call_arguments.h
+# UE Change Begin: Interface variable scalar replacement pass rewrite
+  adv_interface_var_sroa.h
+# UE Change End: Interface variable scalar replacement pass rewrite
   aggressive_dead_code_elim_pass.h
   amd_ext_to_khr.h
   analyze_live_input_pass.h
+# UE Change Begin: Added support for Android driver patch pass to fix platform specific issues
   android_driver_patch_pass.h
+# UE Change End: Added support for Android driver patch pass to fix platform specific issues
   basic_block.h
   block_merge_pass.h
   block_merge_util.h
@@ -107,8 +112,12 @@ set(SPIRV_TOOLS_OPT_SOURCES
   pass_manager.h
   private_to_local_pass.h
   propagator.h
+# UE Change Begin: Added support for reducing const arrays to structs
   reduce_const_array_to_struct_pass.h
+# UE Change End: Added support for reducing const arrays to structs
+# UE Change Begin: Convert-Composite-To-Op-Access-Chain-Pass
   convert_composite_to_op_access_chain.h
+# UE Change End: Convert-Composite-To-Op-Access-Chain-Pass
   reduce_load_size.h
   redundancy_elimination.h
   reflect.h
@@ -146,10 +155,15 @@ set(SPIRV_TOOLS_OPT_SOURCES
   wrap_opkill.h
 
   fix_func_call_arguments.cpp
+# UE Change Begin: Interface variable scalar replacement pass rewrite
+  adv_interface_var_sroa.cpp
+# UE Change End: Interface variable scalar replacement pass rewrite
   aggressive_dead_code_elim_pass.cpp
   amd_ext_to_khr.cpp
   analyze_live_input_pass.cpp
+# UE Change Begin: Added support for Android driver patch pass to fix platform specific issues
   android_driver_patch_pass.cpp
+# UE Change End: Added support for Android driver patch pass to fix platform specific issues
   basic_block.cpp
   block_merge_pass.cpp
   block_merge_util.cpp
@@ -237,8 +251,12 @@ set(SPIRV_TOOLS_OPT_SOURCES
   pass_manager.cpp
   private_to_local_pass.cpp
   propagator.cpp
+# UE Change Begin: Added support for reducing const arrays to structs
   reduce_const_array_to_struct_pass.cpp
+# UE Change End: Added support for reducing const arrays to structs
+# UE Change Begin: Convert-Composite-To-Op-Access-Chain-Pass
   convert_composite_to_op_access_chain.cpp
+# UE Change End: Convert-Composite-To-Op-Access-Chain-Pass
   reduce_load_size.cpp
   redundancy_elimination.cpp
   register_pressure.cpp
