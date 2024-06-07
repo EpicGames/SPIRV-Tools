@@ -668,6 +668,20 @@ bool Optimizer::RegisterPassFromFlag(const std::string& flag,
     RegisterPass(CreateTrimCapabilitiesPass());
   } else if (pass_name == "split-combined-image-sampler") {
     RegisterPass(CreateSplitCombinedImageSamplerPass());
+    // UE Change Begin: Interface variable scalar replacement pass rewrite
+  } else if (pass_name == "adv-interface-variable-scalar-replacement") {
+    bool process_matrices = true;
+    if (pass_args == "skip-matrices") {
+      process_matrices = false;
+    } else if (pass_args.size() != 0) {
+      Errorf(consumer(), nullptr, {},
+             "Invalid argument for --adv-interface-variable-scalar-replacement: %s "
+             "(must be 'skip-matrices' or absent)",
+             pass_args.c_str());
+      return false;
+    }
+    RegisterPass(CreateAdvancedInterfaceVariableScalarReplacementPass(process_matrices));
+    // UE Change End: Interface variable scalar replacement pass rewrite
   } else {
     Errorf(consumer(), nullptr, {},
            "Unknown flag '--%s'. Use --help for a list of valid flags",
@@ -1257,6 +1271,14 @@ Optimizer::PassToken CreateConvertCompositeToOpAccessChainPass() {
       MakeUnique<opt::ConvertCompositeToOpAccessChainPass>());
 }
 // UE Change End: Convert-Composite-To-Op-Access-Chain-Pass
+
+// UE Change Begin: Interface variable scalar replacement pass rewrite
+Optimizer::PassToken CreateAdvancedInterfaceVariableScalarReplacementPass(
+    bool process_matrices) {
+  return MakeUnique<Optimizer::PassToken::Impl>(
+    MakeUnique<opt::AdvancedInterfaceVariableScalarReplacement>(process_matrices));
+}
+// UE Change End: Interface variable scalar replacement pass rewrite
 
 }  // namespace spvtools
 

@@ -16,7 +16,10 @@ add_subdirectory(dominator_tree)
 add_subdirectory(loop_optimizations)
 
 add_spvtools_unittest(TARGET opt
-  SRCS aggressive_dead_code_elim_test.cpp
+# UE Change Begin: Interface variable scalar replacement pass rewrite
+  SRCS adv_interface_var_sroa_test.cpp
+# UE Change End: Interface variable scalar replacement pass rewrite
+       aggressive_dead_code_elim_test.cpp
        amd_ext_to_khr.cpp
        analyze_live_input_test.cpp
        assembly_builder_test.cpp
