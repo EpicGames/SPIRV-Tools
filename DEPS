@@ -3,20 +3,24 @@ use_relative_paths = True
 vars = {
   'github': 'https://github.com',
 
-  'effcee_revision': '35912e1b7778ec2ddcff7e7188177761539e59e0',
+  'abseil_revision': '0df56740031c3882c3b3f93bef15698a30f3a1f6',
 
-  # Pin to the last version of googletest that supports C++11.
-  # Anything later requires C++14
-  'googletest_revision': 'v1.12.0',
+  'effcee_revision': '2c97e5689ed8d7ab6ae5820f884f03a601ae124b',
+
+  'googletest_revision': '6dae7eb4a5c3a169f3e298392bff4680224aa94a',
 
   # Use protobufs before they gained the dependency on abseil
-  'protobuf_revision': 'v3.13.0.1',
+  'protobuf_revision': 'v21.12',
 
-  're2_revision': 'd2836d1b1c34c4e330a85a1006201db474bf2c8a',
-  'spirv_headers_revision': '34d04647d384e0aed037e7a2662a655fc39841bb',
+  're2_revision': '6dcd83d60f7944926bfd308cc13979fc53dd69ca',
+
+  'spirv_headers_revision': '2a9b6f951c7d6b04b6c21fe1bf3f475b68b84801',
 }
 
 deps = {
+  'external/abseil_cpp':
+      Var('github') + '/abseil/abseil-cpp.git@' + Var('abseil_revision'),
+
   'external/effcee':
       Var('github') + '/google/effcee.git@' + Var('effcee_revision'),
 

@@ -14,12 +14,9 @@
 
 // Source code for logical layout validation as described in section 2.4
 
-#include <cassert>
-
 #include "DebugInfo.h"
 #include "NonSemanticShaderDebugInfo100.h"
 #include "OpenCLDebugInfo100.h"
-#include "source/diagnostic.h"
 #include "source/opcode.h"
 #include "source/operand.h"
 #include "source/val/function.h"
@@ -38,6 +35,7 @@ spv_result_t ModuleScopedInstructions(ValidationState_t& _,
                                       const Instruction* inst, spv::Op opcode) {
   switch (opcode) {
     case spv::Op::OpExtInst:
+    case spv::Op::OpExtInstWithForwardRefsKHR:
       if (spvExtInstIsDebugInfo(inst->ext_inst_type())) {
         const uint32_t ext_inst_index = inst->word(4);
         bool local_debug_info = false;
@@ -246,6 +244,7 @@ spv_result_t FunctionScopedInstructions(ValidationState_t& _,
         break;
 
       case spv::Op::OpExtInst:
+      case spv::Op::OpExtInstWithForwardRefsKHR:
         if (spvExtInstIsDebugInfo(inst->ext_inst_type())) {
           const uint32_t ext_inst_index = inst->word(4);
           bool local_debug_info = false;

@@ -84,7 +84,7 @@ OpMemoryModel Logical GLSL450
       HasSubstr("Cannot create undefined values with 8- or 16-bit types"));
 }
 
-const std::string ShaderClockSpriv = R"(
+const std::string ShaderClockSpirv = R"(
 OpCapability Shader
 OpCapability Int64
 OpCapability ShaderClockKHR
@@ -103,7 +103,7 @@ OpName %time1 "time1"
 )";
 
 TEST_F(ValidateMisc, ShaderClockInt64) {
-  const std::string spirv = ShaderClockSpriv + R"(
+  const std::string spirv = ShaderClockSpirv + R"(
 %3 = OpTypeFunction %void
 %uint = OpTypeInt 32 0
 %_ptr_Function_uint = OpTypePointer Function %uint
@@ -123,7 +123,7 @@ OpFunctionEnd)";
 }
 
 TEST_F(ValidateMisc, ShaderClockVec2) {
-  const std::string spirv = ShaderClockSpriv + R"(
+  const std::string spirv = ShaderClockSpirv + R"(
 %3 = OpTypeFunction %void
 %ulong = OpTypeInt 64 0
 %_ptr_Function_ulong = OpTypePointer Function %ulong
@@ -145,7 +145,7 @@ OpFunctionEnd)";
 }
 
 TEST_F(ValidateMisc, ShaderClockInvalidScopeValue) {
-  const std::string spirv = ShaderClockSpriv + R"(
+  const std::string spirv = ShaderClockSpirv + R"(
 %3 = OpTypeFunction %void
 %ulong = OpTypeInt 64 0
 %uint = OpTypeInt 32 0
@@ -166,7 +166,7 @@ OpFunctionEnd)";
 }
 
 TEST_F(ValidateMisc, ShaderClockSubgroupScope) {
-  const std::string spirv = ShaderClockSpriv + R"(
+  const std::string spirv = ShaderClockSpirv + R"(
 %3 = OpTypeFunction %void
 %ulong = OpTypeInt 64 0
 %uint = OpTypeInt 32 0
@@ -186,7 +186,7 @@ OpFunctionEnd)";
 }
 
 TEST_F(ValidateMisc, ShaderClockDeviceScope) {
-  const std::string spirv = ShaderClockSpriv + R"(
+  const std::string spirv = ShaderClockSpirv + R"(
 %3 = OpTypeFunction %void
 %ulong = OpTypeInt 64 0
 %uint = OpTypeInt 32 0
@@ -206,7 +206,7 @@ OpFunctionEnd)";
 }
 
 TEST_F(ValidateMisc, ShaderClockWorkgroupScope) {
-  const std::string spirv = ShaderClockSpriv + R"(
+  const std::string spirv = ShaderClockSpirv + R"(
 %3 = OpTypeFunction %void
 %ulong = OpTypeInt 64 0
 %uint = OpTypeInt 32 0
@@ -222,13 +222,13 @@ OpReturn
 OpFunctionEnd)";
 
   CompileSuccessfully(spirv);
-  EXPECT_EQ(SPV_ERROR_INVALID_DATA, ValidateInstructions());
+  EXPECT_EQ(SPV_ERROR_INVALID_DATA, ValidateInstructions(SPV_ENV_VULKAN_1_0));
   EXPECT_THAT(getDiagnosticString(),
               HasSubstr("Scope must be Subgroup or Device"));
 }
 
 TEST_F(ValidateMisc, VulkanShaderClockWorkgroupScope) {
-  const std::string spirv = ShaderClockSpriv + R"(
+  const std::string spirv = ShaderClockSpirv + R"(
 %3 = OpTypeFunction %void
 %ulong = OpTypeInt 64 0
 %uint = OpTypeInt 32 0
@@ -249,6 +249,59 @@ OpFunctionEnd)";
               AnyVUID("VUID-StandaloneSpirv-OpReadClockKHR-04652"));
   EXPECT_THAT(getDiagnosticString(),
               HasSubstr("Scope must be Subgroup or Device"));
+}
+
+std::string GenKernelClockSpirv(const std::string& scope) {
+  const std::string s = R"(
+OpCapability Kernel
+OpCapability Addresses
+OpCapability Int64
+OpCapability ShaderClockKHR
+OpExtension "SPV_KHR_shader_clock"
+OpMemoryModel Physical32 OpenCL
+OpEntryPoint Kernel %main "main"
+OpExecutionMode %main ContractionOff
+OpSource OpenCL_C 200000
+OpName %main "main"
+OpName %time1 "time1"
+%void = OpTypeVoid
+%3 = OpTypeFunction %void
+%ulong = OpTypeInt 64 0
+%uint = OpTypeInt 32 0
+%_ptr_Function_ulong = OpTypePointer Function %ulong
+%scope = OpConstant %uint )" +
+                        scope + R"(
+%main = OpFunction %void None %3
+%5 = OpLabel
+%time1 = OpVariable %_ptr_Function_ulong Function
+%11 = OpReadClockKHR %ulong %scope
+OpStore %time1 %11
+OpReturn
+OpFunctionEnd
+)";
+  return s;
+}
+
+TEST_F(ValidateMisc, KernelClockScopeDevice) {
+  CompileSuccessfully(GenKernelClockSpirv("1"), SPV_ENV_OPENCL_1_2);
+  EXPECT_EQ(SPV_SUCCESS, ValidateInstructions(SPV_ENV_OPENCL_1_2));
+}
+
+TEST_F(ValidateMisc, KernelClockScopeWorkgroup) {
+  CompileSuccessfully(GenKernelClockSpirv("2"), SPV_ENV_OPENCL_1_2);
+  EXPECT_EQ(SPV_SUCCESS, ValidateInstructions(SPV_ENV_OPENCL_1_2));
+}
+
+TEST_F(ValidateMisc, KernelClockScopeSubgroup) {
+  CompileSuccessfully(GenKernelClockSpirv("3"), SPV_ENV_OPENCL_1_2);
+  EXPECT_EQ(SPV_SUCCESS, ValidateInstructions(SPV_ENV_OPENCL_1_2));
+}
+
+TEST_F(ValidateMisc, KernelClockScopeInvalid) {
+  CompileSuccessfully(GenKernelClockSpirv("0"), SPV_ENV_OPENCL_1_2);
+  EXPECT_EQ(SPV_ERROR_INVALID_DATA, ValidateInstructions(SPV_ENV_OPENCL_1_2));
+  EXPECT_THAT(getDiagnosticString(),
+              HasSubstr("Scope must be Subgroup, Workgroup, or Device"));
 }
 
 TEST_F(ValidateMisc, UndefVoid) {

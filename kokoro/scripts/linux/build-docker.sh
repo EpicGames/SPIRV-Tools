@@ -20,7 +20,14 @@ set -e
 # Display commands being run.
 set -x
 
+# This is required to run any git command in the docker since owner will
+# have changed between the clone environment, and the docker container.
+# Marking the root of the repo as safe for ownership changes.
+git config --global --add safe.directory $ROOT_DIR
+
 . /bin/using.sh # Declare the bash `using` function for configuring toolchains.
+
+using python-3.12
 
 if [ $COMPILER = "clang" ]; then
   using clang-10.0.0
@@ -38,8 +45,10 @@ function clean_dir() {
   mkdir "$dir"
 }
 
-# Get source for dependencies, as specified in the DEPS file
-/usr/bin/python3 utils/git-sync-deps --treeless
+if [ $TOOL != "cmake-smoketest" ]; then
+  # Get source for dependencies, as specified in the DEPS file
+  /usr/bin/python3 utils/git-sync-deps --treeless
+fi
 
 if [ $TOOL = "cmake" ]; then
   using cmake-3.17.2
@@ -124,6 +133,7 @@ elif [ $TOOL = "cmake-smoketest" ]; then
   git clone https://github.com/KhronosGroup/SPIRV-Headers.git spirv-headers
   git clone https://github.com/google/re2
   git clone https://github.com/google/effcee
+  git clone https://github.com/abseil/abseil-cpp abseil_cpp
 
   cd $SHADERC_DIR
   mkdir build
@@ -134,7 +144,7 @@ elif [ $TOOL = "cmake-smoketest" ]; then
   cmake -GNinja -DRE2_BUILD_TESTING=OFF -DCMAKE_BUILD_TYPE="Release" ..
 
   echo $(date): Build glslang...
-  ninja glslangValidator
+  ninja glslang-standalone
 
   echo $(date): Build everything...
   ninja
@@ -148,7 +158,7 @@ elif [ $TOOL = "cmake-smoketest" ]; then
   echo $(date): ctest completed.
 elif [ $TOOL = "cmake-android-ndk" ]; then
   using cmake-3.17.2
-  using ndk-r21d
+  using ndk-r25c
   using ninja-1.10.0
 
   clean_dir "$ROOT_DIR/build"
@@ -156,7 +166,7 @@ elif [ $TOOL = "cmake-android-ndk" ]; then
 
   echo $(date): Starting build...
   cmake -DCMAKE_BUILD_TYPE=Release \
-        -DANDROID_NATIVE_API_LEVEL=android-16 \
+        -DANDROID_NATIVE_API_LEVEL=android-24 \
         -DANDROID_ABI="armeabi-v7a with NEON" \
         -DSPIRV_SKIP_TESTS=ON \
         -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake" \
@@ -168,7 +178,7 @@ elif [ $TOOL = "cmake-android-ndk" ]; then
   ninja
   echo $(date): Build completed.
 elif [ $TOOL = "android-ndk-build" ]; then
-  using ndk-r21d
+  using ndk-r25c
 
   clean_dir "$ROOT_DIR/build"
   cd "$ROOT_DIR/build"
@@ -183,13 +193,13 @@ elif [ $TOOL = "android-ndk-build" ]; then
 
   echo $(date): ndk-build completed.
 elif [ $TOOL = "bazel" ]; then
-  using bazel-5.0.0
+  using bazel-7.0.2
 
   echo $(date): Build everything...
-  bazel build :all
+  bazel build --cxxopt=-std=c++17 :all
   echo $(date): Build completed.
 
   echo $(date): Starting bazel test...
-  bazel test :all
+  bazel test --cxxopt=-std=c++17 :all
   echo $(date): Bazel test completed.
 fi
