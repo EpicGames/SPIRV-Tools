@@ -232,7 +232,7 @@ Optimizer& Optimizer::RegisterPerformancePasses(bool preserve_interface) {
       .RegisterPass(CreateLocalMultiStoreElimPass())
       .RegisterPass(CreateRedundancyEliminationPass())
       .RegisterPass(CreateSimplificationPass())
-      .RegisterPass(CreateAggressiveDCEPass())
+      .RegisterPass(CreateAggressiveDCEPass(preserve_interface))
       .RegisterPass(CreateCFGCleanupPass());
       // UE Change End
       ;

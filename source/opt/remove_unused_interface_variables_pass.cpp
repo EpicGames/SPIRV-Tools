@@ -68,6 +68,17 @@ class RemoveUnusedInterfaceVariablesContext {
     std::unordered_set<uint32_t> old_variables;
     for (int i = entry_.NumInOperands() - 1; i >= 3; --i) {
       auto variable = entry_.GetInOperand(i).words[0];
+      // UE Change Begin: Fix to override the stripping of input variables and fragement outputs, this should be allowed in the spec, but we rely on this data for some platforms to match inputs/outputs
+      auto* var = parent_.get_def_use_mgr()->GetDef(variable);
+      
+      bool is_fragment_model = parent_.context()->GetStage() == spv::ExecutionModel::Fragment;
+      spv::StorageClass storage_class = spv::StorageClass(var->GetSingleWordInOperand(0));
+      if ((storage_class == spv::StorageClass::Input && parent_.context()->preserve_storage_input()) ||
+          (storage_class == spv::StorageClass::Output && is_fragment_model))
+      {
+        return false;
+      }
+      // UE Change End: Fix to override the stripping of input variables and fragement outputs, this should be allowed in the spec, but we rely on this data for some platforms to match inputs/outputs
       if (!used_variables_.count(variable)) return true;  // It is unused.
       if (old_variables.count(variable)) return true;     // It is duplicate.
       old_variables.insert(variable);

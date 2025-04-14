@@ -697,11 +697,11 @@ Pass::Status AggressiveDCEPass::InitializeModuleScopeLiveInstructions() {
         // without an associated output. Don't remove outputs unless explicitly
         // allowed.
         // UE Change Begin: Fix to override the stripping of input variables, this should be allowed in the spec, but we rely on this data for some platforms to match inputs/outputs
-        if (!remove_outputs_) {
-          if (spv::StorageClass(storage_class) == spv::StorageClass::Input ||
-              spv::StorageClass(storage_class) == spv::StorageClass::Output) {
-            AddToWorklist(var);
-          }
+        if ((context()->preserve_storage_input() &&
+             spv::StorageClass(storage_class) == spv::StorageClass::Input) ||
+            (!remove_outputs_ &&
+             spv::StorageClass(storage_class) == spv::StorageClass::Output)) {
+          AddToWorklist(var);
         }
         // UE Change End: Fix to override the stripping of input variables, this should be allowed in the spec, but we rely on this data for some platforms to match inputs/outputs
       }
