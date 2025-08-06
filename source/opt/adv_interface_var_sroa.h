@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Google LLC
+// Copyright (c) 2025 Epic Games, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -90,14 +90,21 @@ class AdvancedInterfaceVariableScalarReplacement : public Pass {
 
     Instruction* GetScalarVariable() const { return scalar_var; }
 
-    void SetSingleScalarVariable(Instruction* var) { scalar_var = var; }
+    void SetSingleScalarVariable(Instruction* var, uint32_t in_vector_component_count) {
+      scalar_var = var;
+      vector_component_count = in_vector_component_count;
+    }
 
     uint32_t GetTypeId() const { return type_id; }
+
+    // Returns 0, if the Replacement is not a vector.
+    uint32_t GetVectorComponentCount() const { return vector_component_count; }
 
    private:
     std::vector<Replacement> children;
     Instruction* scalar_var;
     uint32_t type_id;
+    uint32_t vector_component_count;
   };
 
   // Collects all interface variables used by the |entry_point|.
@@ -171,14 +178,21 @@ class AdvancedInterfaceVariableScalarReplacement : public Pass {
                     Instruction* optional_access_chain,
                     uint32_t extra_array_length);
 
+  struct LookupResult {
+    // The replacement node, nullptr if not found.
+    const Replacement* replacement = nullptr;
+    // If |replacement| is a vector, which was also indexed by |access_chain|,
+    // this will have that used index value.
+    int64_t index = -1;
+  };
   // Looks up the replacement node according to the indices from the access
   // chain |access_chain|, using the passed |root| as a base. If any index in
   // the chain is non-constant or ouf-of-bound, return nullptr. If
   // |extra_array_length| is not zero, the first index in the chain is skipped,
   // as it is the one used for extra arrayness.
-  const Replacement* LookupReplacement(Instruction* access_chain,
-                                       const Replacement* root,
-                                       uint32_t extra_array_length);
+  LookupResult LookupReplacement(Instruction* access_chain,
+                                 const Replacement* root,
+                                 uint32_t extra_array_length);
 
   // Creates a variable with type |type_id| and storage class |storage_class|.
   // Debug info for the newly created variable is copied from the source

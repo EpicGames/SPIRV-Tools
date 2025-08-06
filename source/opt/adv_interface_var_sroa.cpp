@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Google LLC
+// Copyright (c) 2025 Epic Games, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,10 +30,19 @@ constexpr uint32_t kOpEntryPointInOperandInterface = 3;
 constexpr uint32_t kOpVariableStorageClassInOperandIndex = 0;
 constexpr uint32_t kOpTypeArrayElemTypeInOperandIndex = 0;
 constexpr uint32_t kOpTypeArrayLengthInOperandIndex = 1;
+constexpr uint32_t kOpTypeVectorComponentCountInOperandIndex = 1;
 constexpr uint32_t kOpTypeMatrixColCountInOperandIndex = 1;
 constexpr uint32_t kOpTypeMatrixColTypeInOperandIndex = 0;
 constexpr uint32_t kOpTypePtrTypeInOperandIndex = 1;
 constexpr uint32_t kOpConstantValueInOperandIndex = 0;
+
+// Get the component count of the OpTypeVector |vector_type|.
+uint32_t GetVectorComponentCount(Instruction* vector_type) {
+  assert(vector_type->opcode() == spv::Op::OpTypeVector);
+  uint32_t component_count =
+      vector_type->GetSingleWordInOperand(kOpTypeVectorComponentCountInOperandIndex);
+  return component_count;
+}
 
 // Get the length of the OpTypeArray |array_type|.
 uint32_t GetArrayLength(analysis::DefUseManager* def_use_mgr,
@@ -223,6 +232,8 @@ Pass::Status AdvancedInterfaceVariableScalarReplacement::ProcessEntryPoint(
 
   ReplaceInEntryPoint(&entry_point, replaced_interface_vars, scalar_vars);
 
+  context()->InvalidateAnalysesExceptFor(IRContext::Analysis::kAnalysisNone);
+
   return status;
 }
 
@@ -330,19 +341,46 @@ bool AdvancedInterfaceVariableScalarReplacement::ReplaceInterfaceVariable(
     // We are going to replace the access chain with either direct usage of the
     // replacement scalar variable, or a set of composite loads/stores.
 
-    const Replacement* target =
+    LookupResult result =
         LookupReplacement(access_chain, &replacement, var.extra_array_length);
-    if (!target) {
+    if (!result.replacement) {
       // Error has been already logged by |LookupReplacement|.
       return false;
     }
+    const Replacement* target = result.replacement;
 
     if (!target->HasChildren() && var.extra_array_length == 0) {
-      // Replace with a direct use of the scalar variable.
       auto scalar = target->GetScalarVariable();
       assert(scalar);
-      context()->ReplaceAllUsesWith(access_chain->result_id(),
-                                    scalar->result_id());
+
+      uint32_t replacement = 0;
+      if (result.index >= 0) {
+        // Our scalar is a vector and access chain in question targets a
+        // specific component denoted by result.index.
+        assert(target->GetVectorComponentCount() > 0);
+        // Replace with an access chain into a direct use of the scalar variable.
+        uint32_t indirection_id = TakeNextId();
+        if (indirection_id == 0) {
+          return false;
+        }
+
+        uint32_t vector_component_type_id = context()->get_def_use_mgr()->GetDef(target->GetTypeId())->GetSingleWordInOperand(0);
+
+        uint32_t index_id = context()->get_constant_mgr()->GetUIntConstId(result.index);
+        Operand index_operand = {SPV_OPERAND_TYPE_ID, {index_id}};
+        std::unique_ptr<Instruction> vector_access_chain =
+            CreateAccessChain(context(), indirection_id, scalar,
+                              vector_component_type_id, index_operand);
+        replacement = vector_access_chain->result_id();
+
+        auto inst = access_chain->InsertBefore(std::move(vector_access_chain));
+        inst->UpdateDebugInfoFrom(access_chain);
+        get_def_use_mgr()->AnalyzeInstDef(inst);
+      } else {
+        // Replace with a direct use of the scalar variable.
+        replacement = scalar->result_id();
+      }
+      context()->ReplaceAllUsesWith(access_chain->result_id(), replacement);
     } else {
       // The current access chain's target is a composite, meaning that there
       // are other instructions using the pointer. We need to convert those to
@@ -732,7 +770,7 @@ bool AdvancedInterfaceVariableScalarReplacement::ReplaceStore(
   return true;
 }
 
-const AdvancedInterfaceVariableScalarReplacement::Replacement*
+AdvancedInterfaceVariableScalarReplacement::LookupResult
 AdvancedInterfaceVariableScalarReplacement::LookupReplacement(
     Instruction* access_chain, const Replacement* root,
     uint32_t extra_array_length) {
@@ -744,9 +782,11 @@ AdvancedInterfaceVariableScalarReplacement::LookupReplacement(
   // array, hence we skip it when looking-up the rest.
   uint32_t start_index = extra_array_length == 0 ? 1 : 2;
 
+  uint32_t num_indices = access_chain->NumInOperands();
+
   // Finds the target replacement, which might be a scalar or nested
   // composite.
-  for (uint32_t i = start_index; i < access_chain->NumInOperands(); ++i) {
+  for (uint32_t i = start_index; i < num_indices; ++i) {
     uint32_t index_id = access_chain->GetSingleWordInOperand(i);
 
     const analysis::Constant* index_constant =
@@ -754,14 +794,34 @@ AdvancedInterfaceVariableScalarReplacement::LookupReplacement(
     if (!index_constant) {
       context()->EmitErrorMessage(
           "Variable cannot be replaced: index is not constant", access_chain);
-      return nullptr;
+      return {};
+    }
+
+    // OpAccessChain treats indices as signed.
+    int64_t index_value = index_constant->GetSignExtendedValue();
+
+    // Very last index can target the vector type, which we
+    // have as a scalar.
+    if (i == num_indices - 1) {
+      if (root->GetScalarVariable()) {
+        if (index_value < 0 ||
+            index_value >=
+                static_cast<int64_t>(root->GetVectorComponentCount())) {
+          // Out of bounds access, this is illegal IR.
+          // Notice that OpAccessChain indexing is 0-based, so we should also
+          // reject index == size-of-array.
+          context()->EmitErrorMessage(
+              "Variable cannot be replaced: invalid index", access_chain);
+          return {};
+        }
+        // Current root is our replacement scalar - a vector, in fact.
+        return {root, index_value};
+      }
     }
 
     assert(root->HasChildren());
     const auto& children = root->GetChildren();
 
-    // OpAccessChain treats indices as signed.
-    int64_t index_value = index_constant->GetSignExtendedValue();
     if (index_value < 0 ||
         index_value >= static_cast<int64_t>(children.size())) {
       // Out of bounds access, this is illegal IR.
@@ -769,12 +829,12 @@ AdvancedInterfaceVariableScalarReplacement::LookupReplacement(
       // reject index == size-of-array.
       context()->EmitErrorMessage("Variable cannot be replaced: invalid index",
                                   access_chain);
-      return nullptr;
+      return {};
     }
 
     root = &children[index_value];
   }
-  return root;
+  return {root};
 }
 
 AdvancedInterfaceVariableScalarReplacement::Replacement
@@ -863,7 +923,12 @@ AdvancedInterfaceVariableScalarReplacement::CreateReplacementVariables(
       std::unique_ptr<Instruction> variable = CreateVariable(
           type->result_id(), storage_class, var.def, var.extra_array_length);
 
-      node->SetSingleScalarVariable(variable.get());
+      uint32_t vector_component_count = 0;
+      if (opcode == spv::Op::OpTypeVector) {
+        vector_component_count = GetVectorComponentCount(type);
+      }
+
+      node->SetSingleScalarVariable(variable.get(), vector_component_count);
       scalar_vars->push_back(variable.get());
 
       uint32_t var_id = variable->result_id();

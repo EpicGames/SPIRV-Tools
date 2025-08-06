@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Google LLC
+// Copyright (c) 2025 Epic Games, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -70,15 +70,11 @@ TEST_F(AdvancedInterfaceVariableScalarReplacementTest,
 ; CHECK-DAG: OpDecorate [[y]] Location 0
 ; CHECK-DAG: OpDecorate [[gl_InvocationID]] BuiltIn InvocationId
 ; CHECK-DAG: OpDecorate [[z0]] Location 0
-; CHECK-DAG: OpDecorate [[z0]] Component 0
 ; CHECK-DAG: OpDecorate [[z1]] Location 1
-; CHECK-DAG: OpDecorate [[z1]] Component 0
 ; CHECK-DAG: OpDecorate [[z0]] Patch
 ; CHECK-DAG: OpDecorate [[z1]] Patch
 ; CHECK-DAG: OpDecorate [[w0]] Location 2
-; CHECK-DAG: OpDecorate [[w0]] Component 0
 ; CHECK-DAG: OpDecorate [[w1]] Location 3
-; CHECK-DAG: OpDecorate [[w1]] Component 0
 ; CHECK-DAG: OpDecorate [[w0]] Patch
 ; CHECK-DAG: OpDecorate [[w1]] Patch
 ; CHECK-DAG: OpDecorate [[u0]] Location 3
@@ -327,6 +323,64 @@ TEST_F(AdvancedInterfaceVariableScalarReplacementTest,
      %q_val    = OpLoad %_arr_uint_uint_2 %q
      %vi2_ptr  = OpAccessChain %_ptr_Output__arr_uint_uint_2 %v %id %uint_2
                  OpStore %vi2_ptr %q_val
+
+               OpReturn
+               OpFunctionEnd
+  )";
+
+  SinglePassRunAndMatch<AdvancedInterfaceVariableScalarReplacement>(spirv, true, true);
+}
+
+TEST_F(AdvancedInterfaceVariableScalarReplacementTest,
+       ReplaceInterfaceVarsWithScalas_Vectors) {
+  const std::string spirv = R"(
+               OpCapability Shader
+               OpMemoryModel Logical GLSL450
+               OpEntryPoint Vertex %func "shader" %x
+
+; CHECK:     OpName [[y:%\w+]] "y"
+; CHECK:     OpName [[x0:%\w+]] "x[0]"
+; CHECK:     OpName [[x1:%\w+]] "x[1]"
+; CHECK-NOT: OpName {{%\w+}} "y"
+               OpName %x "x"
+               OpName %y "y"
+
+; CHECK-DAG: OpDecorate [[x0]] Location 1
+; CHECK-DAG: OpDecorate [[x1]] Location 2
+               OpDecorate %x Location 1
+
+      %float = OpTypeFloat 32
+        %int = OpTypeInt 32 1
+       %uint = OpTypeInt 32 0
+      %int_1 = OpConstant %int 1
+     %uint_1 = OpConstant %uint 1
+     %uint_2 = OpConstant %uint 2
+    %v3float = OpTypeVector %float 3
+%_arr_v3float_uint_2 = OpTypeArray %v3float %uint_2
+%_ptr_Input_float = OpTypePointer Input %float
+%_ptr_Input_v3float = OpTypePointer Input %v3float
+%_ptr_Input__arr_v3float_uint_2 = OpTypePointer Input %_arr_v3float_uint_2
+%_ptr_Function_float = OpTypePointer Function %float
+%_ptr_Function__vec3 = OpTypePointer Function %v3float
+
+          %x = OpVariable %_ptr_Input__arr_v3float_uint_2 Input
+; CHECK-DAG: [[x0]] = OpVariable %_ptr_Input_v3float Input
+; CHECK-DAG: [[x1]] = OpVariable %_ptr_Input_v3float Input
+
+     %void   = OpTypeVoid
+     %void_f = OpTypeFunction %void
+     %func   = OpFunction %void None %void_f
+     %label  = OpLabel
+
+          %y = OpVariable %_ptr_Function_float Function
+; CHECK-DAG [[y]] = OpVariable %_ptr_Function_float Function
+
+; CHECK: [[ptr:%\w+]] = OpAccessChain %_ptr_Input_float [[x1]] %uint_1
+; CHECK: [[val:%\w+]] = OpLoad %float [[ptr]]
+; CHECK:                OpStore [[y]] [[val]]
+    %x_z_ptr = OpAccessChain %_ptr_Input_float %x %int_1 %uint_1
+    %x_z_val = OpLoad %float %x_z_ptr
+               OpStore %y %x_z_val
 
                OpReturn
                OpFunctionEnd
