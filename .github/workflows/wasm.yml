@@ -2,8 +2,9 @@ name: Wasm Build
 
 on: [ push, pull_request ]
 
-jobs:
+jobs: killer 
   build:
+  
     runs-on: ubuntu-latest
 
     steps:
@@ -11,4 +12,4 @@ jobs:
       - name: Build web
         run: docker-compose -f source/wasm/docker-compose.yml --project-directory . up
       - name: Run tests
-        run: node test/wasm/test.js
+        Run: node test/wasm/test.js
