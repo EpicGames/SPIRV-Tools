@@ -1526,6 +1526,9 @@ spv_result_t ValidateStore(ValidationState_t& _, const Instruction* inst) {
     }
   }
 
+// UE Change Begin: Skip validation for bad OpStore for now
+// https://github.com/microsoft/DirectXShaderCompiler/issues/8417
+#if 0
   if (spvIsVulkanEnv(_.context()->target_env) &&
       !_.options()->before_hlsl_legalization) {
     const auto isForbiddenType = [](const Instruction* type_inst) {
@@ -1542,6 +1545,8 @@ spv_result_t ValidateStore(ValidationState_t& _, const Instruction* inst) {
                 "OpTypeSampledImage, or OpTypeAccelerationStructureKHR objects";
     }
   }
+#endif
+// UE Change End: Skip validation for bad OpStore for now
 
   return SPV_SUCCESS;
 }
