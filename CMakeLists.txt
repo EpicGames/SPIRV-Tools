@@ -84,7 +84,10 @@ set(SPIRV_LIB_FUZZING_ENGINE_LINK_OPTIONS "" CACHE STRING "Used by OSS-Fuzz to c
 
 option(SPIRV_BUILD_LIBFUZZER_TARGETS "Build libFuzzer targets" OFF)
 
-option(SPIRV_WERROR "Enable error on warning" ON)
+# UE Change Begin: Disable Werror
+option(SPIRV_WERROR "Enable error on warning" OFF)
+#option(SPIRV_WERROR "Enable error on warning" ON)
+# UE Change End: Disable Werror
 if(("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU") OR (("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang") AND (NOT CMAKE_CXX_SIMULATE_ID STREQUAL "MSVC")))
   set(COMPILER_IS_LIKE_GNU TRUE)
 endif()
