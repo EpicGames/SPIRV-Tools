@@ -116,7 +116,9 @@ spv_result_t CheckIdDefinitionDominateUse(ValidationState_t& _) {
 }
 
 bool InstructionCanHaveTypeOperand(const Instruction* inst) {
-  static std::unordered_set<spv::Op> instruction_allow_set{
+  // UE Change Begin: replace static unordered_set with array to fix shutdown alloc/free mismatch due to custom alloc hooks being unregistered
+  static spv::Op instruction_allow_set[] = {
+  // UE Change End: replace static unordered_set with array to fix shutdown alloc/free mismatch due to custom alloc hooks being unregistered
       spv::Op::OpSizeOf,
       spv::Op::OpCooperativeMatrixLengthNV,
       spv::Op::OpCooperativeMatrixLengthKHR,
@@ -136,13 +138,20 @@ bool InstructionCanHaveTypeOperand(const Instruction* inst) {
       (spv::Op(inst->word(3)) == spv::Op::OpCooperativeMatrixLengthNV ||
        spv::Op(inst->word(3)) == spv::Op::OpCooperativeMatrixLengthKHR);
   return type_instruction || debug_instruction || inst->IsNonSemantic() ||
-         spvOpcodeIsDecoration(opcode) || instruction_allow_set.count(opcode) ||
+         // UE Change Begin: replace static unordered_set with array to fix shutdown alloc/free mismatch due to custom alloc hooks being unregistered
+         spvOpcodeIsDecoration(opcode) ||
+         std::find(std::begin(instruction_allow_set),
+                   std::end(instruction_allow_set),
+                   opcode) != std::end(instruction_allow_set) ||
+         // UE Change End: replace static unordered_set with array to fix shutdown alloc/free mismatch due to custom alloc hooks being unregistered
          spvOpcodeGeneratesUntypedPointer(opcode) ||
          coop_matrix_spec_constant_op_length;
 }
 
 bool InstructionRequiresTypeOperand(const Instruction* inst) {
-  static std::unordered_set<spv::Op> instruction_deny_set{
+  // UE Change Begin: replace static unordered_set with array to fix shutdown alloc/free mismatch due to custom alloc hooks being unregistered
+  static spv::Op instruction_deny_set[] = {
+  // UE Change End: replace static unordered_set with array to fix shutdown alloc/free mismatch due to custom alloc hooks being unregistered
       spv::Op::OpExtInst,
       spv::Op::OpExtInstWithForwardRefsKHR,
       spv::Op::OpExtInstImport,
@@ -168,7 +177,11 @@ bool InstructionRequiresTypeOperand(const Instruction* inst) {
 
   return !debug_instruction && !inst->IsNonSemantic() &&
          !spvOpcodeIsDecoration(opcode) && !spvOpcodeIsBranch(opcode) &&
-         !instruction_deny_set.count(opcode) &&
+         // UE Change Begin: replace static unordered_set with array to fix shutdown alloc/free mismatch due to custom alloc hooks being unregistered
+         std::find(std::begin(instruction_deny_set),
+                   std::end(instruction_deny_set),
+                   opcode) == std::end(instruction_deny_set) &&
+         // UE Change End: replace static unordered_set with array to fix shutdown alloc/free mismatch due to custom alloc hooks being unregistered
          !spvOpcodeGeneratesUntypedPointer(opcode) &&
          !coop_matrix_spec_constant_op_length;
 }
