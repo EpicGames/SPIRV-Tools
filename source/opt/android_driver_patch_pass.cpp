@@ -18,6 +18,7 @@
 
 #include "source/opt/instruction.h"
 #include "source/opt/ir_context.h"
+#include "source/opt/ir_builder.h"
 
 namespace spvtools {
 namespace opt {
@@ -45,12 +46,15 @@ Pass::Status AndroidDriverPatchPass::Process() {
 	    modified |= FixupOpPhiMatrix4x3(inst, entryPoint);
 	    modified |= FixupOpVectorShuffle(inst);
         modified |= FixupOpVariableFunctionPrecision(inst);
+        modified |= StripFMA(inst);
+        modified |= FixupNMinMax(inst);
 	  }
     });
   }
 
   for (auto& val : get_module()->types_values()) {
     modified |= FixupOpTypeImage(&val);
+    modified |= FixupOpTypeAccelerationStructure(&val);
   };
 
   return modified ? Status::SuccessWithChange : Status::SuccessWithoutChange;
@@ -221,7 +225,6 @@ bool AndroidDriverPatchPass::FixupOpVectorShuffle(Instruction* inst) {
   }
 
   bool bOutputHasRelaxedPrecision = HasRelaxedPrecision(inst->GetOperand(0).words[0]);
-  bool bInputHasRelaxedPrecision = HasRelaxedPrecision(inputOp1.words[0]) || HasRelaxedPrecision(inputOp2.words[0]);
 
   uint32_t inputCompCount1 = inputType1->GetSingleWordOperand(2);
 
@@ -338,6 +341,122 @@ bool AndroidDriverPatchPass::FixupOpTypeImage(Instruction* inst) {
   return true;
 }
 
+bool AndroidDriverPatchPass::FixupOpTypeAccelerationStructure(Instruction* inst) {
+  if (inst->opcode() != spv::Op::OpTypeAccelerationStructureKHR) {
+    return false;
+  }
+
+  Instruction* AccelerationPointer = nullptr;
+
+  // Find pointer
+  context()->get_def_use_mgr()->WhileEachUser(
+    inst, [&AccelerationPointer](Instruction* user) {
+      if (user->opcode() == spv::Op::OpTypePointer) {
+        spv::StorageClass storage_class = static_cast<spv::StorageClass>(user->GetSingleWordOperand(1));
+        if (storage_class == spv::StorageClass::UniformConstant) {
+          AccelerationPointer = user;
+          return false;
+        }
+      }
+        return true;
+    });
+
+  if (AccelerationPointer == nullptr) {
+    return false;
+  }
+
+  // Find acceleration structure variable
+  Instruction* TLASVariable = nullptr;
+  context()->get_def_use_mgr()->WhileEachUser(
+    AccelerationPointer, [&TLASVariable](Instruction* user) {
+      if (user->opcode() == spv::Op::OpVariable) {
+        spv::StorageClass storage_class = static_cast<spv::StorageClass>(user->GetSingleWordOperand(2));
+        if (storage_class == spv::StorageClass::UniformConstant) {
+          TLASVariable = user;
+          return false;
+        }
+      }
+      return true;
+    });
+
+  if (TLASVariable == nullptr) {
+    return false;
+  }
+
+  std::vector<Instruction*> OpStores;
+  std::vector<Instruction*> OpLoads;
+
+  // Find OpLoad/OpStores, remove and replace uses with the TLAS variable
+  context()->get_def_use_mgr()->ForEachUser(inst, [this, inst, &OpStores, &OpLoads](Instruction* InOpLoad) {
+    if (InOpLoad->opcode() == spv::Op::OpLoad && InOpLoad->GetOperand(0).words[0] == inst->result_id()) {
+      context()->get_def_use_mgr()->ForEachUser(InOpLoad, [InOpLoad, &OpStores](Instruction* InOpStore) {
+        if (InOpStore->opcode() == spv::Op::OpStore && InOpStore->GetOperand(1).words[0] == InOpLoad->result_id()) {
+		  OpStores.push_back(InOpStore);
+        }
+	  });
+      OpLoads.push_back(InOpLoad);
+    }
+  }); 
+
+
+  for (auto& load : OpLoads) {
+	load->GetOperand(2).words[0] = TLASVariable->result_id();
+    context()->UpdateDefUse(TLASVariable);
+  }
+  
+  for (auto& removeInst : OpStores) {
+    context()->KillInst(removeInst);
+  }
+
+  return true;
+}
+
+bool AndroidDriverPatchPass::StripFMA(Instruction* inst) {
+  if (inst->opcode() != spv::Op::OpExtInst) {
+    return false;
+  }
+
+  uint32_t extInstType = inst->GetOperand(3).words[0];
+  if (extInstType != GLSLstd450Fma) 
+	return false;
+
+  InstructionBuilder builder(context(), inst, IRContext::kAnalysisDefUse | IRContext::kAnalysisInstrToBlockMapping);
+
+  Instruction* inputInstructions[3];
+  for (uint32_t idx = 0; idx < 3; ++idx) {
+    inputInstructions[idx] = context()->get_def_use_mgr()->GetDef(inst->GetOperand(4 + idx).words[0]);
+  }
+
+  // Add new multiply and add instructions
+  Instruction* mul = builder.AddBinaryOp(inst->GetOperand(0).words[0], spv::Op::OpFMul, inputInstructions[0]->result_id(), inputInstructions[1]->result_id());
+  Instruction* add = builder.AddBinaryOp(inst->GetOperand(0).words[0], spv::Op::OpFAdd, mul->result_id(), inputInstructions[2]->result_id());
+
+  context()->ReplaceAllUsesWith(inst->result_id(), add->result_id());
+  context()->UpdateDefUse(add);
+
+  inst->RemoveFromList();
+
+  return true;
+}
+
+bool AndroidDriverPatchPass::FixupNMinMax(Instruction* inst) {
+  if (inst->opcode() != spv::Op::OpExtInst) {
+    return false;
+  }
+  spvtools::opt::Operand& Op = inst->GetOperand(3);
+  uint32_t extInstType = Op.words[0];
+
+  if (extInstType == GLSLstd450NMin) {
+    Op.words[0] = GLSLstd450FMin;
+    return true;
+  } else if (extInstType == GLSLstd450NMax) {
+    Op.words[0] = GLSLstd450FMax;
+    return true;
+  }
+
+  return false;
+}
+
 bool AndroidDriverPatchPass::HasRelaxedPrecision(uint32_t operand_id) {
   std::vector<Instruction*> decorations = get_decoration_mgr()->GetDecorationsFor(operand_id, false);
   for (Instruction* decoration : decorations) {
@@ -364,6 +483,7 @@ bool AndroidDriverPatchPass::RemoveRelaxedPrecision(uint32_t operand_id) {
   for (Instruction* decoration : decorations) {
     if (spv::Decoration(decoration->GetSingleWordInOperand(1)) == spv::Decoration::RelaxedPrecision) {
       get_decoration_mgr()->RemoveDecoration(decoration);
+      decoration->RemoveFromList();
       return true;
     }
   }
